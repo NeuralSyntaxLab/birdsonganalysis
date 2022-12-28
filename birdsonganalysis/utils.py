@@ -57,12 +57,13 @@ def get_windows(song, fft_step=None, fft_size=None):
     padsize = fft_size
     song = np.concatenate((np.zeros(padsize), song, np.zeros(padsize)))
     wave_smp = range(fft_step//2, size, fft_step)
+    window_indices = [i for i in wave_smp]
     nb_windows = len(wave_smp)
     windows = np.zeros((nb_windows, fft_size))
     for i, smp in enumerate(wave_smp):
         begin = smp - fft_size//2 + padsize
         windows[i, :] = song[begin:begin + fft_size]
-    return windows
+    return windows, window_indices
 
 
 def distbroad(X, Y):

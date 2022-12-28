@@ -160,7 +160,7 @@ def spectral_derivs(song, freq_range=None, fft_step=None, fft_size=None):
     """
     if freq_range is None:
         freq_range = 256
-    windows = get_windows(song, fft_step, fft_size)
+    windows, window_indices = get_windows(song, fft_step, fft_size)
     nb_windows = windows.shape[0]
     td = np.zeros((nb_windows, freq_range))
     fd = np.zeros((nb_windows, freq_range))
@@ -181,7 +181,7 @@ def song_frequency_modulation(song, freq_range=None, fft_step=None,
     """Return the whole song frequency modulations array."""
     if freq_range is None:
         freq_range = 256
-    windows = get_windows(song, fft_step, fft_size)
+    windows, window_indices = get_windows(song, fft_step, fft_size)
     nb_windows = windows.shape[0]
     td = np.zeros((nb_windows, freq_range))
     fd = np.zeros((nb_windows, freq_range))
@@ -196,7 +196,7 @@ def song_frequency_modulation(song, freq_range=None, fft_step=None,
 
 def song_amplitude(song, freq_range=None, fft_step=None, fft_size=None):
     """Return an array of amplitude values for the whole song."""
-    windows = get_windows(song, fft_step, fft_size)
+    windows, window_indices = get_windows(song, fft_step, fft_size)
     nb_windows = windows.shape[0]
     amp = np.zeros(nb_windows)
     D = libtfr.mfft_dpss(windows.shape[1], 1.5, 2, windows.shape[1])
@@ -211,7 +211,7 @@ def song_pitch(song, sr, threshold=None, freq_range=None, fft_step=None,
     """Return an array of pitch values for the whole song."""
     if threshold is None:
         threshold = 0.8
-    windows = get_windows(song, fft_step, fft_size)
+    windows, window_indices = get_windows(song, fft_step, fft_size)
     nb_windows = windows.shape[0]
     win_s = windows.shape[1]
     pitch_o = aubio_pitch("yin", 2048, win_s, sr)
@@ -228,7 +228,7 @@ def song_wiener_entropy(song, freq_range=None, fft_step=None, fft_size=None):
     """Return an array of wiener entropy values for the whole song."""
     if freq_range is None:
         freq_range = 256
-    windows = get_windows(song, fft_step, fft_size)
+    windows, window_indices = get_windows(song, fft_step, fft_size)
     wiener = np.zeros(windows.shape[0])
     for i, window in enumerate(windows):
         P = get_power(window)
@@ -241,7 +241,7 @@ def song_amplitude_modulation(song, freq_range=None, fft_step=None,
     """Return an array of amplitude modulation for the whole song."""
     if freq_range is None:
         freq_range = 256
-    windows = get_windows(song, fft_step, fft_size)
+    windows, window_indices = get_windows(song, fft_step, fft_size)
     am = np.zeros(windows.shape[0])
     for i, window in enumerate(windows):
         am[i] = amplitude_modulation(window)
@@ -252,18 +252,26 @@ def song_goodness(song, freq_range=None, fft_step=None, fft_size=None):
     """Return an array of goodness of pitch for the whole song."""
     if freq_range is None:
         freq_range = 256
-    windows = get_windows(song, fft_step, fft_size)
+    windows, window_indices = get_windows(song, fft_step, fft_size)
     good = np.zeros(windows.shape[0])
     for i, window in enumerate(windows):
         good[i] = goodness(window, freq_range)
     return good
+
+def song_window_center_sec(song, samplerate, fft_size=512, fft_step=40):
+    """Return an array of center time bins in sec."""
+    windows, window_indices = get_windows(song, fft_step, fft_size)
+    timevec = np.zeros(windows.shape[0])
+    for i, window in enumerate(windows):
+        timevec[i] = float(window_indices[i])/samplerate
+    return timevec
 
 
 def all_song_features(song, sr, pitch_method=None,
                       pitch_threshold=None, freq_range=None,
                       fft_step=None, fft_size=None):
     """Return all the song features in a `dict`."""
-    windows = get_windows(song, fft_step, fft_size)
+    windows, window_indices = get_windows(song, fft_step, fft_size)
     out = defaultdict(lambda: np.zeros(windows.shape[0], dtype=float))
     D = libtfr.mfft_dpss(windows.shape[1], 1.5, 2, windows.shape[1])
     for i, window in enumerate(windows):
@@ -274,6 +282,7 @@ def all_song_features(song, sr, pitch_method=None,
         out['fm'][i] = frequency_modulation(Z, freq_range)
         out['amplitude'][i] = amplitude(P, freq_range)
         out['entropy'][i] = wiener_entropy(P, freq_range)
+        out['time'][i] = float(window_indices[i])/sr
         if pitch_method == 'fft':
             out['pitch'][i] = np.argmax(P[0:freq_range])/len(P) * sr
     if pitch_method != 'fft':
